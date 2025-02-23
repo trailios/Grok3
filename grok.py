@@ -5,8 +5,9 @@ import random
 
 colorama.init(autoreset=True)
 
-# Assuming sso.txt contains multiple SSO tokens, one per line
 sso = open("sso.txt", "r").read().splitlines()
+# i had multiple sso's (session cookies)
+
 
 class GrokClient:
     base = "https://grok.com/rest/app-chat/conversations/new"
@@ -110,35 +111,40 @@ class GrokClient:
             )
 
             if response.status_code != 200:
-                print(f"{colorama.Fore.RED}Error: HTTP {response.status_code} - {response.text}")
+                print(f"failed {response.status_code} {response.text}")
                 return ""
 
-            # Print the "grok3 > " prompt only once at the start
-            print(f"{colorama.Fore.GREEN}grok3 {colorama.Fore.RESET}> ", end="", flush=True)
-
-            final_message = ""
-            for line in response.iter_lines(decode_unicode=True):
-                if line:
-                    try:
-                        data = json.loads(line)
-                        if "conversation" in data.get("result", {}):
-                            self.convoID = data["result"]["conversation"]["conversationId"]
-                        if "response" in data.get("result", {}):
-                            response_data = data["result"]["response"]
-                            self.parentID = response_data["responseId"]
-                            if "token" in response_data:
-                                token = response_data["token"]
-                                final_message += token
-                                # Print only the token, without extra prefixes
-                                print(token, end="", flush=True)
-                    except json.JSONDecodeError:
-                        continue
-
-            print()  # Add a newline after the response is complete
-            return final_message
+            return self.parse_response(response.text)
         except requests.exceptions.RequestException as e:
-            print(f"{colorama.Fore.RED}Error: Request failed - {e}")
+            print(f"failed: {e}")
             return ""
+
+    def parse_response(self, response_text: str) -> str:
+        final_message = ""
+        for line in response_text.split("\n"):
+            try:
+                data = json.loads(line)
+
+                if self.convoID:
+                    try:
+                        resp = data.get("result", {}).get(
+                            "token",
+                        )
+                        final_message += resp
+                    except TypeError:
+                        pass
+                if "conversation" in data.get("result", {}):
+                    self.convoID = data["result"]["conversation"]["conversationId"]
+                if "response" in data.get("result", {}):
+                    response = data["result"]["response"]
+                    self.parentID = response["responseId"]
+                    if "token" in response:
+                        final_message += response["token"]
+            except json.JSONDecodeError:
+                continue
+
+        return final_message
+
 
 if __name__ == "__main__":
     client = GrokClient()
@@ -146,8 +152,12 @@ if __name__ == "__main__":
     try:
         while True:
             user_message = input(f"{colorama.Fore.GREEN}YOU {colorama.Fore.RESET}  > ")
-            client.send_request(user_message)
+            response = client.send_request(user_message)
+            print(f"{colorama.Fore.GREEN}grok3 {colorama.Fore.RESET}> {response}")
     except KeyboardInterrupt:
         print(f"Bye! -> {client.convoID}")
     except Exception as e:
-        print(f"{colorama.Fore.RED}Error: {e}")
+        print(f"err: {e}")
+
+
+# tried to get a working stream, but it is not working
