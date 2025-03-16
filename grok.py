@@ -71,7 +71,7 @@ class GrokClient:
     @staticmethod
     def get_cookies(sso: str, cf: str) -> Dict[str, str]:
         return {
-            "cf_clearance": cf,
+            "cf_clearance": cf, # was easy lol
             "sso": sso,
             "sso-rw": sso,
         }
