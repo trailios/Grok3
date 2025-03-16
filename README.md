@@ -1,8 +1,14 @@
-# Grok3
-I was bored so i made this
+# **Grok3-py**  
 
+Grok3 currently does not provide an official API, so I created this. It’s not exactly an API wrapper, but you can use it to build something functional.  
 
-<img width="1063" alt="image" src="https://github.com/user-attachments/assets/7916e050-53fc-4a81-ba89-775450e36024" />
+![Grok3](https://github.com/user-attachments/assets/e1842dd2-aad5-4f14-8106-3b3b9139d512)  
 
+## ⚠ **Warning**  
+🚨 **Using this could get your account banned. Proceed at your own risk!**  
 
-Told them multiple times to add better security, they added cloudflare only 
+## **Cloudflare Clearance**  
+I’ve repeatedly suggested that they improve their security, but they only added Cloudflare protection.  
+
+This project handles Cloudflare clearance using:  
+🔗 **[CF-Clearance-Scraper](https://github.com/Xewdy444/CF-Clearance-Scraper)**  
