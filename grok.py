@@ -3,14 +3,14 @@ import colorama
 import random
 import asyncio
 
-from typing     import Dict, Any
+from typing     import Dict, Any, List
 from curl_cffi  import requests
 
 from cf         import main
 
 colorama.init(autoreset=True)
 
-sso = open("sso.txt", "r").read().splitlines()
+sso: List[str] = open("sso.txt", "r").read().splitlines()
 
 loop = asyncio.new_event_loop()
 
