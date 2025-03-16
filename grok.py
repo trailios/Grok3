@@ -12,8 +12,7 @@ colorama.init(autoreset=True)
 
 sso = open("sso.txt", "r").read().splitlines()
 
-loop = asyncio.get_event_loop()
-asyncio.set_event_loop(loop)
+loop = asyncio.new_event_loop()
 
 class GrokClient:
     BASE_URL = "https://grok.com/rest/app-chat/conversations/new"
