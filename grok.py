@@ -1,16 +1,22 @@
-import requests
 import json
 import colorama
 import random
+import asyncio
+
+from typing     import Dict, Any
+from curl_cffi  import requests
+
+from cf         import main
 
 colorama.init(autoreset=True)
 
 sso = open("sso.txt", "r").read().splitlines()
-# i had multiple sso's (session cookies)
 
+loop = asyncio.get_event_loop()
+asyncio.set_event_loop(loop)
 
 class GrokClient:
-    base = "https://grok.com/rest/app-chat/conversations/new"
+    BASE_URL = "https://grok.com/rest/app-chat/conversations/new"
 
     def __init__(
         self,
@@ -19,21 +25,27 @@ class GrokClient:
         systemprompt: str = "",
         disablesearch: bool = False,
     ):
-        self.session = requests.Session()
+        self.session: requests.Session = requests.Session()
         self.session.headers.update(self.get_headers())
-        self.sso = random.choice(sso)
+        self.session.impersonate = "chrome"
+
+        self.sso: str = random.choice(sso)
+        self.cf: str = loop.run_until_complete(main("https://grok.com/", user_agent=self.session.headers["user-agent"]))
+
         print(
-            f"{colorama.Fore.LIGHTBLACK_EX}SYS   > {colorama.Fore.RESET}Using SSO: {self.sso[:10]}...{self.sso[-10:]}"
+            f"{colorama.Fore.LIGHTBLACK_EX}SYS  > {colorama.Fore.RESET}Using SSO: {self.sso[:10]}...{self.sso[-10:]}"
         )
-        self.cookies = self.get_cookies(self.sso)
 
-        self.convoID = None
-        self.parentID = None
+        self.cookies = self.get_cookies(self.sso, self.cf)
+        self.session.cookies.update(self.cookies)
 
-        self.think = think
-        self.deepsearch = deepsearch
-        self.disablesearch = disablesearch
-        self.systemprompt = systemprompt
+        self.convoID: str = None
+        self.parentID: str = None
+
+        self.think: bool = think
+        self.deepsearch: str = deepsearch
+        self.disablesearch: bool = disablesearch
+        self.systemprompt: str = systemprompt
 
     @staticmethod
     def get_headers() -> dict:
@@ -46,28 +58,26 @@ class GrokClient:
             "pragma": "no-cache",
             "priority": "u=1, i",
             "referer": "https://grok.com/",
-            "sec-ch-ua": '"Not(A:Brand";v="99", "Brave";v="133", "Chromium";v="133"',
+            "sec-ch-ua": '"Not(A:Brand";v="99", "Brave";v="134", "Chromium";v="134"',
             "sec-ch-ua-mobile": "?0",
             "sec-ch-ua-platform": '"Windows"',
             "sec-fetch-dest": "empty",
             "sec-fetch-mode": "cors",
             "sec-fetch-site": "same-origin",
             "sec-gpc": "1",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
         }
 
     @staticmethod
-    def get_cookies(sso) -> dict:
+    def get_cookies(sso: str, cf: str) -> Dict[str, str]:
         return {
-            "x-anonuserid": "",
-            "x-challenge": "",  # not needed lol?
-            "x-signature": "",
+            "cf_clearance": cf,
             "sso": sso,
             "sso-rw": sso,
         }
 
-    def get_payload(self, message: str = "hello") -> dict:
-        data = {
+    def get_payload(self, message: str = "hello") -> Dict[str, Any]:
+        data: Dict[str, Any] = {
             "temporary": False,
             "modelName": "grok-3",
             "message": message,
@@ -101,13 +111,13 @@ class GrokClient:
 
     def send_request(self, message: str = "hello") -> str:
         try:
-            url = (
-                self.base
+            url: str = (
+                self.BASE_URL
                 if self.convoID is None
                 else f"https://grok.com/rest/app-chat/conversations/{self.convoID}/responses"
             )
-            response = self.session.post(
-                url, json=self.get_payload(message), cookies=self.cookies, stream=True
+            response: requests.Response = self.session.post(
+                url, json=self.get_payload(message)
             )
 
             if response.status_code != 200:
@@ -115,31 +125,37 @@ class GrokClient:
                 return ""
 
             return self.parse_response(response.text)
-        except requests.exceptions.RequestException as e:
+        except requests.RequestsError as e:
             print(f"failed: {e}")
             return ""
 
     def parse_response(self, response_text: str) -> str:
-        final_message = ""
+        final_message: str = ""
+
         for line in response_text.split("\n"):
             try:
-                data = json.loads(line)
+                data: Dict[str, Any] = json.loads(line)
 
                 if self.convoID:
                     try:
-                        resp = data.get("result", {}).get(
+                        resp: str = data.get("result", {}).get(
                             "token",
                         )
                         final_message += resp
+
                     except TypeError:
                         pass
+                    
                 if "conversation" in data.get("result", {}):
                     self.convoID = data["result"]["conversation"]["conversationId"]
+
                 if "response" in data.get("result", {}):
                     response = data["result"]["response"]
                     self.parentID = response["responseId"]
+
                     if "token" in response:
                         final_message += response["token"]
+
             except json.JSONDecodeError:
                 continue
 
@@ -154,10 +170,9 @@ if __name__ == "__main__":
             user_message = input(f"{colorama.Fore.GREEN}YOU {colorama.Fore.RESET}  > ")
             response = client.send_request(user_message)
             print(f"{colorama.Fore.GREEN}grok3 {colorama.Fore.RESET}> {response}")
+
     except KeyboardInterrupt:
         print(f"Bye! -> {client.convoID}")
+
     except Exception as e:
         print(f"err: {e}")
-
-
-# tried to get a working stream, but it is not working
